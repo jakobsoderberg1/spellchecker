@@ -1,10 +1,11 @@
-import requests, time, collections, random, json, sys
+import requests, time
 import regex as re
 from requests.adapters import HTTPAdapter
 from pathlib import Path
+from collections import Counter
 from urllib3.util.retry import Retry
 
-TARGET_TOKENS = 100000  
+TARGET_TOKENS = 1000000
 SLEEP_SEC = 0.35          
 OUT_DIR = Path("data"); OUT_DIR.mkdir(exist_ok=True)
 
@@ -26,7 +27,6 @@ def _session_with_retries():
     return s
 
 def fetch_random_svwiki_plaintext():
-    # Random article from svwiki, main namespace, plaintext extract
     ses = _session_with_retries()
     url = "https://sv.wikipedia.org/w/api.php"
     params = {
@@ -42,11 +42,6 @@ def fetch_random_svwiki_plaintext():
         "grnlimit": 1,
     }
     r = ses.get(url, params=params, timeout=15)
-    if r.status_code == 403:
-        raise RuntimeError(
-            "Wikipedia API returned 403 Forbidden. Make sure your User-Agent is "
-            "descriptive and includes a contact URL/email (see UA constant)."
-        )
     r.raise_for_status()
     data = r.json()
     pages =  data.get("query", {}).get("pages", [])
@@ -55,26 +50,43 @@ def fetch_random_svwiki_plaintext():
     page = pages[0]
     return page.get("extract", "").strip()
 
-
-
-
+def tokenize(text):
+    pattern = r'(?<=[\.\!\?][»”")\]]?)\s+(?=[\p{Lu}])'
+    text = re.sub(pattern, r' </s> <s> ', text, flags=re.UNICODE).strip()
+    text = text.replace(".", "")
+    tokens = ['<s>'] + text.lower().split() + ['</s>']
+    return tokens
 def main():
-    token_list = []
-    while len(token_list) < TARGET_TOKENS:
+    unigram_list = []
+    bigram_list = []
+    while len(unigram_list) < TARGET_TOKENS:
       txt = fetch_random_svwiki_plaintext()
       if not txt:
         time.sleep(SLEEP_SEC); continue
-      token_list.extend(re.findall(WORD_RE, txt))
-      if len(token_list) >= TARGET_TOKENS:
+      tokens = tokenize(txt)
+      unigram_list.extend(tokens)
+      for i in range(len(tokens) - 1):
+          bigram_list.append((tokens[i], tokens[i+1]))
+      if len(unigram_list) >= TARGET_TOKENS:
           break
       time.sleep(SLEEP_SEC)
 
-    random.shuffle(token_list)
+    unigram_counter = Counter(unigram_list)
+    bigram_counter = Counter(bigram_list)
+    unigrams = len(unigram_counter.items())
+    unigram_freqs = {word: count / unigrams for word, count in unigram_counter.items()}
+    bigram_freqs = {bigram: count / unigram_counter[bigram[0]] for bigram, count in bigram_counter.items()}
 
-    (OUT_DIR / "sv_words.txt").write_text("\n".join(token_list), encoding="utf-8")
+    with open (f"./{OUT_DIR}/unigram_freqs.txt", "w") as f:
+        for unigram, freq in unigram_freqs.items():
+            f.write(f"{unigram} {freq}\n")
+
+    with open (f"./{OUT_DIR}/bigram_freqs.txt", "w") as f:
+        for bigram, freq in bigram_freqs.items():
+            f.write(f"{bigram} {freq}\n")
 
     # Small summary on stdout
-    print(f"Collected tokens: {len(token_list)}")
+    print(f"Collected unigrams: {len(unigram_list)}")
 
 if __name__ == "__main__":
     main()

@@ -58,22 +58,20 @@ def find_best_candidate(word, candidates, freqs):
           best = freq
    return best_word
 
-def calc_freqs(words):
-   counter = Counter(words)
-   N = len(counter.items())
-   freqs = {word: count / N for word, count in counter.items()} 
-   return freqs
-
 def main():
-    with open("./data/sv_words.txt", "r") as f:
+    with open("./data/unigram_freqs.txt", "r") as f:
        text = f.read().splitlines()
-       freqs = calc_freqs(text)
+       unigram_freqs = {line.split()[0]: float(line.split()[1].strip()) for line in text}
+    print(unigram_freqs)
     
     with open("./texts/in.txt", "r") as f:
        res = []
-       text = f.read().split()
+       text = f.read().lower().split()
        for word in text:
-          res.append(find_best_candidate(word, find_candidates(word, list(freqs.keys())), freqs))
+          if word not in unigram_freqs.keys():
+            res.append(find_best_candidate(word, find_candidates(word, list(unigram_freqs.keys())), unigram_freqs))
+          else:
+             res.append(word)
     
     with open("./texts/out.txt", "w") as f:
        f.write(" ".join(res))
