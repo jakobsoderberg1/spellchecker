@@ -9,7 +9,6 @@ TARGET_TOKENS = 1000000
 SLEEP_SEC = 0.35          
 OUT_DIR = Path("data"); OUT_DIR.mkdir(exist_ok=True)
 
-WORD_RE = r"\p{L}+"
 
 UA = "SpellcheckerScraper/0.1 (https://github.com/jakobsoderberg1/spellchecker; jakob.soderberg9@gmail.com)"
 
@@ -47,8 +46,7 @@ def fetch_random_svwiki_plaintext():
     pages =  data.get("query", {}).get("pages", [])
     if not pages:
         return ""
-    page = pages[0]
-    return page.get("extract", "").strip()
+    return pages[0].get("extract", "").strip()
 
 def tokenize(text):
     pattern = r'(?<=[\.\!\?][»”")\]]?)\s+(?=[\p{Lu}])'
@@ -83,7 +81,7 @@ def main():
 
     with open (f"./{OUT_DIR}/bigram_freqs.txt", "w") as f:
         for bigram, freq in bigram_freqs.items():
-            f.write(f"{bigram} {freq}\n")
+            f.write(f"{bigram[0]}, {bigram[1]}, {freq}\n")
 
     # Small summary on stdout
     print(f"Collected unigrams: {len(unigram_list)}")

@@ -1,5 +1,6 @@
 from collections import Counter
 from math import inf
+import regex as re
 
 
 alphabet = 'abcdefghijklmnopqrstuvwxyzåäö'
@@ -62,19 +63,29 @@ def main():
     with open("./data/unigram_freqs.txt", "r") as f:
        text = f.read().splitlines()
        unigram_freqs = {line.split()[0]: float(line.split()[1].strip()) for line in text}
-    print(unigram_freqs)
+    with open("./data/bigram_freqs.txt", "r") as f:
+       text = f.read().splitlines()
+       bigam_freqs = {(line.split()[0], line.split()[1]): float(line.split()[2].strip()) for line in text}
+    corrected = []
+    text = open("./texts/in.txt", "r").read()
+    pattern = r'(?<=[\.\!\?][»”")\]]?)\s+(?=[\p{L}])'
+    text = re.sub(pattern, r' </s> <s> ', text, flags=re.UNICODE).strip()
+    text = text.replace(".", "")
+    text = ['<s>'] + text.lower().split() + ['</s>']
+
+    for word in text:
+      if word not in unigram_freqs.keys() and word != '<s>' and word != '</s>':
+        corrected.append(find_best_candidate(word, find_candidates(word, list(unigram_freqs.keys())), unigram_freqs))
+      else:
+          corrected.append(word)
     
-    with open("./texts/in.txt", "r") as f:
-       res = []
-       text = f.read().lower().split()
-       for word in text:
-          if word not in unigram_freqs.keys():
-            res.append(find_best_candidate(word, find_candidates(word, list(unigram_freqs.keys())), unigram_freqs))
-          else:
-             res.append(word)
-    
+    for i in range(len(corrected) - 1):
+       if corrected[i] == '<s>':
+          corrected[i+1] = corrected[i+1].capitalize()
+    corrected = " ".join(corrected[1:-1])
+    corrected = re.sub(r' </s> <s> ', ". ", corrected)    
     with open("./texts/out.txt", "w") as f:
-       f.write(" ".join(res))
+       f.write(corrected)
           
     
 
